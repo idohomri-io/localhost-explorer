@@ -1,0 +1,121 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+MANIFEST
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env/
+.ENV/
+virtualenv/
+.virtualenvs/
+
+# ── Environment & secrets ──────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+*.p12
+secrets.json
+credentials.json
+
+# ── Flask / app-specific ───────────────────────────────────────────────────────
+instance/
+.webassets-cache
+prefs.json
+
+# ── Testing & coverage ─────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+test-results/
+
+# ── Type checking & linting ────────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pytype/
+
+# ── Packaging & distribution ───────────────────────────────────────────────────
+*.whl
+*.tar.gz
+*.zip
+RECORD
+
+# ── Jupyter ────────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── macOS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# ── Windows ────────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ── Linux ──────────────────────────────────────────────────────────────────────
+*~
+.fuse_hidden*
+.nfs*
+
+# ── Editors & IDEs ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.iml
+.claude/
+
+# ── Logs & databases ──────────────────────────────────────────────────────────
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# ── Node (if ever added) ──────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log
+.pnp.*
