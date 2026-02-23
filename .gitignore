@@ -114,8 +114,8 @@ $RECYCLE.BIN/
 *.sqlite3
 *.db
 
-# ── Node (if ever added) ──────────────────────────────────────────────────────
-node_modules/
-npm-debug.log*
-yarn-error.log
-.pnp.*
+# ── Scripts ─────────────────────────────────────────────────────────────
+
+build-docker.sh
+Dockerfile
+.dockerignore
