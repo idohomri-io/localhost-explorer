@@ -21,7 +21,7 @@ A lightweight dashboard that discovers and displays all services running on your
 ## Installation
 
 ```bash
-git clone https://github.com/idohomri-iolocalhost-explorer.git
+git clone https://github.com/idohomri-io/localhost-explorer.git
 cd localhost-explorer
 pip install -r requirements.txt
 ```
