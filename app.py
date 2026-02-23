@@ -1,5 +1,7 @@
+import os
 import platform
 import re
+import socket
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
@@ -11,7 +13,15 @@ from flask import Flask, jsonify, render_template
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
-APP_PORT = 5001
+APP_PORT = int(os.environ.get("PORT", 5001))
+
+# Host used in browser-side service links.
+# Set the HOST env var to override (e.g. "myserver.local" or "192.168.1.10").
+# Falls back to the machine's fully-qualified domain name.
+SERVICE_HOST = os.environ.get("HOST") or socket.getfqdn()
+
+print(f"Starting Localhost Explorer on {platform.system()}...")
+print(f"Environment variables: PORT={APP_PORT}, HOST={SERVICE_HOST}")
 
 KNOWN_PORTS = {
     80: ("HTTP Server", "fa-globe"),
@@ -248,7 +258,7 @@ def resolve_service(port, proc_name):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", service_host=SERVICE_HOST)
 
 
 @app.route("/api/services")

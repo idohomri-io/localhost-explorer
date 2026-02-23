@@ -308,6 +308,8 @@
   <div class="other-list" id="other-list"></div>
 
   <script>
+    const SERVICE_HOST = {{ service_host | tojson }};
+
     const grid = document.getElementById('grid');
     const otherList = document.getElementById('other-list');
     const webLabel = document.getElementById('web-label');
@@ -422,11 +424,15 @@
 
           web.forEach((svc, i) => {
             const a = document.createElement('a');
+            const link = 'http://' + SERVICE_HOST + ':' + svc.port;
+            const iconLink = svc.favicon || (svc.icon ? `${link}/favicon.ico` : '');
             a.className = 'card';
-            a.href = 'http://localhost:' + svc.port;
+            a.href = link;
             a.target = '_blank';
             a.rel = 'noopener';
             a.style.animationDelay = (i * 0.05) + 's';
+
+
 
             let iconHtml;
             if (svc.favicon) {

@@ -1,0 +1,19 @@
+services:
+  localhost-explorer:
+    image: ghcr.io/idohomri-io/localhost-explorer:v1.1.0
+    pull_policy: always
+    container_name: localhost-explorer
+    # build: .   # uncomment to build from source instead of pulling
+    restart: unless-stopped
+    # --net=host is required so the container shares the host's network
+    # namespace and can discover the host's listening ports.
+    # This is Linux-only; Docker Desktop on macOS/Windows does not support it.
+    # NOTE: `ports:` cannot be used with network_mode: host — use PORT below instead.
+    network_mode: host
+    environment:
+      - PYTHONUNBUFFERED=1
+      # PORT: port the app listens on. With host networking this IS the host port.
+      - PORT=80
+      # HOST: hostname or IP used in browser-side service links.
+      # Defaults to the machine's FQDN if not set.
+      # - HOST=myserver.local
