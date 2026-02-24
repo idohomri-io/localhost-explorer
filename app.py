@@ -9,7 +9,10 @@ from urllib.parse import urljoin
 
 import psutil
 import requests
+import urllib3
 from flask import Flask, jsonify, render_template
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
@@ -100,32 +103,74 @@ class _MetaParser(HTMLParser):
             self._in_title = False
 
 
-def probe_http(port):
-    """Try GET http://localhost:<port> and return web metadata or None."""
-    url = f"http://localhost:{port}"
-    try:
-        resp = requests.get(url, timeout=1.5, allow_redirects=True)
-        if resp.status_code >= 400:
-            return None
-        content_type = resp.headers.get("content-type", "")
-        if "html" not in content_type:
-            return None
-        # requests defaults to ISO-8859-1 for text/html when no charset is
-        # declared in the HTTP header, which mangles non-Latin scripts.
-        # Use apparent_encoding (charset sniffing) to handle all languages.
-        resp.encoding = resp.apparent_encoding or "utf-8"
-        parser = _MetaParser()
-        parser.feed(resp.text[:32_000])  # only parse head-ish portion
-        favicon = parser.favicon
-        if favicon:
-            favicon = urljoin(url + "/", favicon)
-        return {
-            "title": parser.title.strip() or None,
-            "description": parser.description or None,
-            "favicon": favicon or None,
-        }
-    except Exception:
+def _parse_response(resp, base_url):
+    """Extract HTML metadata from a successful requests.Response."""
+    if resp.status_code >= 400:
         return None
+    if "html" not in resp.headers.get("content-type", ""):
+        return None
+    # requests defaults to ISO-8859-1 for text/html when no charset is
+    # declared in the HTTP header, which mangles non-Latin scripts.
+    resp.encoding = resp.apparent_encoding or "utf-8"
+    parser = _MetaParser()
+    parser.feed(resp.text[:32_000])
+    favicon = parser.favicon
+    if favicon:
+        favicon = urljoin(base_url + "/", favicon)
+    return {
+        "title": parser.title.strip() or None,
+        "description": parser.description or None,
+        "favicon": favicon or None,
+    }
+
+
+def probe_http(port):
+    """Try HTTPS (valid cert), HTTPS (self-signed), then HTTP on localhost:<port>.
+
+    Returns a metadata dict with extra fields:
+      protocol: "https" | "http"
+      secure:   True  – HTTPS with a trusted certificate
+                False – HTTPS with an untrusted / self-signed certificate
+                None  – plain HTTP (no TLS)
+    Returns None when no web service is found.
+    """
+    https_url = f"https://localhost:{port}"
+    http_url  = f"http://localhost:{port}"
+
+    # 1. HTTPS with certificate verification (trusted cert)
+    try:
+        resp = requests.get(https_url, timeout=1.5, allow_redirects=True, verify=True)
+        meta = _parse_response(resp, https_url)
+        if meta is not None:
+            meta["protocol"] = "https"
+            meta["secure"] = True
+            return meta
+    except requests.exceptions.SSLError:
+        # Certificate problem — try again without verification
+        try:
+            resp = requests.get(https_url, timeout=1.5, allow_redirects=True, verify=False)
+            meta = _parse_response(resp, https_url)
+            if meta is not None:
+                meta["protocol"] = "https"
+                meta["secure"] = False
+                return meta
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    # 2. Plain HTTP
+    try:
+        resp = requests.get(http_url, timeout=1.5, allow_redirects=True)
+        meta = _parse_response(resp, http_url)
+        if meta is not None:
+            meta["protocol"] = "http"
+            meta["secure"] = None
+            return meta
+    except Exception:
+        pass
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +194,8 @@ def get_services():
                 svc["title"] = meta["title"]
                 svc["description"] = meta["description"]
                 svc["favicon"] = meta["favicon"]
+                svc["protocol"] = meta["protocol"]
+                svc["secure"] = meta["secure"]
             else:
                 svc["has_web"] = False
 
