@@ -210,6 +210,7 @@ def get_services():
                 svc["favicon"] = favicon
                 svc["protocol"] = meta["protocol"]
                 svc["secure"] = meta["secure"]
+                svc["url"] = f"{meta['protocol']}://{SERVICE_HOST}:{svc['port']}"
             else:
                 svc["has_web"] = False
 

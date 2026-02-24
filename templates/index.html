@@ -537,7 +537,9 @@
             function initRangeSlider(ports) {
                 const lo = Math.min(...ports);
                 const hi = Math.max(...ports);
-                const step = Math.max(1, Math.round((hi - lo) / 10));
+                // Divide the range into exactly 5 equal steps so lo + 5*step == hi,
+                // guaranteeing the max thumb can always reach the highest port.
+                const step = (hi - lo) / 5;
                 [rangeMinInput, rangeMaxInput].forEach(el => {
                     el.min = lo;
                     el.max = hi;
@@ -568,17 +570,23 @@
             }
 
             rangeMinInput.addEventListener('input', () => {
-                const step = parseInt(rangeMinInput.step) || 1;
-                if (parseInt(rangeMinInput.value) >= parseInt(rangeMaxInput.value))
-                    rangeMinInput.value = parseInt(rangeMaxInput.value) - step;
+                updateRangeFill();
+            });
+            rangeMinInput.addEventListener('change', () => {
+                const step = parseFloat(rangeMinInput.step);
+                if (parseFloat(rangeMinInput.value) >= parseFloat(rangeMaxInput.value))
+                    rangeMinInput.value = parseFloat(rangeMaxInput.value) - step;
                 updateRangeFill();
                 renderOtherFiltered();
             });
 
             rangeMaxInput.addEventListener('input', () => {
-                const step = parseInt(rangeMaxInput.step) || 1;
-                if (parseInt(rangeMaxInput.value) <= parseInt(rangeMinInput.value))
-                    rangeMaxInput.value = parseInt(rangeMinInput.value) + step;
+                updateRangeFill();
+            });
+            rangeMaxInput.addEventListener('change', () => {
+                const step = parseFloat(rangeMaxInput.step);
+                if (parseFloat(rangeMaxInput.value) <= parseFloat(rangeMinInput.value))
+                    rangeMaxInput.value = parseFloat(rangeMinInput.value) + step;
                 updateRangeFill();
                 renderOtherFiltered();
             });
@@ -685,9 +693,8 @@
                   web.forEach((svc, i) => {
                     const a = document.createElement('a');
                     const proto = svc.protocol || 'http';
-                    const link = proto + '://' + SERVICE_HOST + ':' + svc.port;
                     a.className = 'card';
-                    a.href = link;
+                    a.href = svc.url;
                     a.target = '_blank';
                     a.rel = 'noopener';
                     a.style.animationDelay = (i * 0.05) + 's';
