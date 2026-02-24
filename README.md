@@ -80,7 +80,7 @@ The container must share the host's network namespace to discover the host's lis
 ./run-docker.sh
 
 # Or manually
-docker run --rm --net=host ghcr.io/idohomri-io/localhost-explorer:v1.4.0
+docker run --rm --net=host ghcr.io/idohomri-io/localhost-explorer:latest
 ```
 
 Then open [http://localhost:5001](http://localhost:5001).
