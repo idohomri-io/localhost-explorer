@@ -75,9 +75,6 @@ Process names (`node`, `python`, `nginx`, `postgres`, `redis-server`, etc.) are 
 The container must share the host's network namespace to discover the host's listening ports and reach `http://localhost:<port>` for HTTP probing. This requires `--net=host`, which is **Linux-only** (not supported on Docker Desktop for macOS/Windows — use the local Python install there instead).
 
 ```bash
-# Build & push
-./build-docker.sh
-
 # Run (Linux only)
 ./run-docker.sh
 
@@ -93,8 +90,6 @@ Then open [http://localhost:5001](http://localhost:5001).
 localhost-explorer/
 ├── app.py              # Flask app & service discovery logic
 ├── requirements.txt
-├── Dockerfile
-├── .dockerignore
 ├── run-docker.sh       # Run with --net=host (Linux)
 └── templates/
     └── index.html      # Single-file frontend (HTML + CSS + JS)
