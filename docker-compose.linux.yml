@@ -1,3 +1,8 @@
+# docker-compose.yml — for Linux (network_mode: host)
+#
+# On macOS or Windows, use docker-compose.desktop.yml instead:
+#   docker compose -f docker-compose.desktop.yml up -d
+
 services:
   localhost-explorer:
     image: ghcr.io/idohomri-io/localhost-explorer:latest

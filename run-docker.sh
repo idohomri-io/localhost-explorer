@@ -11,7 +11,7 @@
 #   pip install -r requirements.txt && python app.py
 set -euo pipefail
 
-IMAGE="${1:-ghcr.io/idohomri-io/localhost-explorer:v1.0.0}"
+IMAGE="${1:-ghcr.io/idohomri-io/localhost-explorer:latest}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
   echo "ERROR: --net=host only works on Linux."

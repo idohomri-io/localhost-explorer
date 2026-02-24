@@ -79,7 +79,7 @@ The container must share the host's network namespace to discover the host's lis
 # Run (Linux only)
 ./run-docker.sh
 
-# Or manually
+# Or manually (Linux only)
 docker run --rm --net=host ghcr.io/idohomri-io/localhost-explorer:latest
 ```
 

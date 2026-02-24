@@ -23,8 +23,13 @@ APP_PORT = int(os.environ.get("PORT", 5001))
 # Falls back to the machine's fully-qualified domain name.
 SERVICE_HOST = os.environ.get("HOST") or socket.getfqdn()
 
+# When set, switches to TCP port-scan mode and probes this host instead of
+# reading the local socket table. Required on macOS/Windows Docker Desktop
+# where network_mode:host is unavailable. Typical value: "host.docker.internal".
+SCAN_HOST = os.environ.get("SCAN_HOST")
+
 print(f"Starting Localhost Explorer on {platform.system()}...")
-print(f"Environment variables: PORT={APP_PORT}, HOST={SERVICE_HOST}")
+print(f"Environment variables: PORT={APP_PORT}, HOST={SERVICE_HOST}, SCAN_HOST={SCAN_HOST}")
 
 KNOWN_PORTS = {
     80: ("HTTP Server", "fa-globe"),
@@ -124,8 +129,8 @@ def _parse_response(resp, base_url):
     }
 
 
-def probe_http(port):
-    """Try HTTPS (valid cert), HTTPS (self-signed), then HTTP on localhost:<port>.
+def probe_http(port, host="localhost"):
+    """Try HTTPS (valid cert), HTTPS (self-signed), then HTTP on <host>:<port>.
 
     Returns a metadata dict with extra fields:
       protocol: "https" | "http"
@@ -134,8 +139,8 @@ def probe_http(port):
                 None  – plain HTTP (no TLS)
     Returns None when no web service is found.
     """
-    https_url = f"https://localhost:{port}"
-    http_url  = f"http://localhost:{port}"
+    https_url = f"https://{host}:{port}"
+    http_url  = f"http://{host}:{port}"
 
     # 1. HTTPS with certificate verification (trusted cert)
     try:
@@ -178,14 +183,18 @@ def probe_http(port):
 # ---------------------------------------------------------------------------
 
 def get_services():
-    try:
-        raw = _get_services_psutil()
-    except psutil.AccessDenied:
-        raw = _get_services_lsof()
+    if SCAN_HOST:
+        raw = _get_services_scan(SCAN_HOST)
+    else:
+        try:
+            raw = _get_services_psutil()
+        except psutil.AccessDenied:
+            raw = _get_services_lsof()
 
     # Probe all ports for HTTP in parallel
+    probe_host = SCAN_HOST or "localhost"
     with ThreadPoolExecutor(max_workers=12) as pool:
-        futures = {pool.submit(probe_http, svc["port"]): svc for svc in raw}
+        futures = {pool.submit(probe_http, svc["port"], probe_host): svc for svc in raw}
         for fut in as_completed(futures):
             svc = futures[fut]
             meta = fut.result()
@@ -193,7 +202,12 @@ def get_services():
                 svc["has_web"] = True
                 svc["title"] = meta["title"]
                 svc["description"] = meta["description"]
-                svc["favicon"] = meta["favicon"]
+                # Favicon URL uses the internal probe host — rewrite it to the
+                # browser-accessible SERVICE_HOST so the <img> loads correctly.
+                favicon = meta["favicon"]
+                if favicon and SCAN_HOST:
+                    favicon = favicon.replace(f"://{SCAN_HOST}:", f"://{SERVICE_HOST}:", 1)
+                svc["favicon"] = favicon
                 svc["protocol"] = meta["protocol"]
                 svc["secure"] = meta["secure"]
             else:
@@ -290,6 +304,44 @@ def _get_services_lsof():
     return services
 
 
+def _get_services_scan(host):
+    """TCP connect scan used on macOS/Windows Docker Desktop.
+
+    psutil/lsof can't see the host's sockets from inside a Docker Desktop
+    container, so we probe every port by attempting a TCP connection to
+    `host` (typically "host.docker.internal").  Refused connections return
+    in < 1 ms, so scanning all 65 535 ports completes in a few seconds.
+    """
+    import socket as _socket
+
+    def _check(port):
+        try:
+            with _socket.create_connection((host, port), timeout=0.2):
+                return port
+        except Exception:
+            return None
+
+    services = []
+    seen_ports = set()
+    with ThreadPoolExecutor(max_workers=256) as pool:
+        futures = [pool.submit(_check, p) for p in range(1, 65536)]
+        for fut in as_completed(futures):
+            port = fut.result()
+            if port is None or port == APP_PORT or port in seen_ports:
+                continue
+            seen_ports.add(port)
+            friendly_name, icon = resolve_service(port, "")
+            services.append({
+                "port": port,
+                "process": "",
+                "name": friendly_name,
+                "icon": icon,
+            })
+
+    services.sort(key=lambda s: s["port"])
+    return services
+
+
 def resolve_service(port, proc_name):
     if port in KNOWN_PORTS:
         return KNOWN_PORTS[port]
@@ -314,4 +366,4 @@ def api_services():
 
 
 if __name__ == "__main__":
-    app.run(port=APP_PORT, debug=True)
+    app.run(host="0.0.0.0", port=APP_PORT, debug=True)

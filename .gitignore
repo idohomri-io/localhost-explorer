@@ -119,3 +119,6 @@ $RECYCLE.BIN/
 build-docker.sh
 Dockerfile
 .dockerignore
+
+# ── Local dev overrides ──────────────────────────────────────────────────
+docker-compose.dev.yml

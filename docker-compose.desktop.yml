@@ -1,0 +1,35 @@
+# docker-compose.desktop.yml — for macOS and Windows (Docker Desktop)
+#
+# On Linux, use docker-compose.yml instead (network_mode: host gives full
+# socket-table access and is more accurate than port scanning).
+#
+# Usage:
+#   docker compose -f docker-compose.desktop.yml up -d
+#
+# How it works:
+#   Docker Desktop on macOS/Windows runs containers inside a Linux VM, so
+#   network_mode: host is not supported.  Instead, the app uses SCAN_HOST to
+#   TCP-probe every port on "host.docker.internal", the special hostname that
+#   Docker Desktop resolves to the host machine's IP.
+
+services:
+  localhost-explorer:
+    image: ghcr.io/idohomri-io/localhost-explorer:latest
+    pull_policy: always
+    container_name: localhost-explorer
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    extra_hosts:
+      # Ensures host.docker.internal resolves on all platforms.
+      # Docker Desktop defines it automatically; this entry makes it explicit.
+      - "host.docker.internal:host-gateway"
+    environment:
+      - PYTHONUNBUFFERED=1
+      # PORT: port the app listens on (must match the left side of `ports:` above).
+      - PORT=80
+      # SCAN_HOST: activates TCP port-scan mode, probing the given hostname.
+      - SCAN_HOST=host.docker.internal
+      # HOST: hostname shown in browser-side service links.
+      # Defaults to the machine's FQDN if not set.
+      # - HOST=myserver.local
