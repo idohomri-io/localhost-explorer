@@ -1,528 +1,754 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Localhost Explorer</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f0f13;
-      color: #e0e0e0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding-top: 4rem;
-    }
-
-    header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 2rem;
-      height: 3.5rem;
-      background: #0f0f13cc;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid #1e1e2a;
-    }
-
-    header h1 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #6ee7b7, #3b82f6);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      white-space: nowrap;
-    }
-
-    header h1 i {
-      -webkit-text-fill-color: #6ee7b7;
-      margin-right: 0.4rem;
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
-    .bell-btn {
-      background: #1a1a24;
-      border: 1px solid #2a2a3a;
-      border-radius: 20px;
-      color: #444;
-      cursor: pointer;
-      font-size: 0.8rem;
-      padding: 0.3rem 0.65rem;
-      min-height: 1.8rem;
-      display: flex;
-      align-items: center;
-      transition: color 0.2s, border-color 0.2s;
-    }
-
-    .bell-btn:hover { color: #888; border-color: #3a3a4a; }
-
-    .bell-btn.active {
-      color: #6ee7b7;
-      border-color: #6ee7b744;
-    }
-
-    #status {
-      min-width: 200px;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.78rem;
-      padding: 0.3rem 0.75rem;
-      border-radius: 20px;
-      background: #1a1a24;
-      border: 1px solid #2a2a3a;
-      color: #555;
-      transition: color 0.3s, border-color 0.3s;
-      min-height: 1.8rem;
-      white-space: nowrap;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    #status:not(.refreshing):hover {
-      color: #e0e0e0;
-      border-color: #3a3a4a;
-    }
-
-    #status.refreshing {
-      color: #6ee7b7;
-      border-color: #6ee7b744;
-    }
-
-    #status.error {
-      color: #f87171;
-      border-color: #f8717144;
-    }
-
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-      flex-shrink: 0;
-    }
-
-    #status.idle .status-dot {
-      animation: pulse-dot 3s ease-in-out infinite;
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.35; }
-    }
-
-    /* --- Web services grid --- */
-    .section-label {
-      width: 100%;
-      max-width: 1000px;
-      padding: 0 2rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #555;
-      margin: 1rem 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .section-count {
-      background: #252536;
-      color: #666;
-      font-size: 0.7rem;
-      font-weight: 600;
-      border-radius: 10px;
-      padding: 0.1rem 0.5rem;
-      letter-spacing: 0;
-      text-transform: none;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 1rem;
-      padding: 0.75rem 2rem 1.5rem;
-      width: 100%;
-      max-width: 1000px;
-    }
-
-    .card {
-      background: #1a1a24;
-      border: 1px solid #2a2a3a;
-      border-radius: 12px;
-      padding: 1.5rem;
-      text-decoration: none;
-      color: inherit;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.75rem;
-      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-      animation: cardIn 0.35s ease both;
-      position: relative;
-    }
-
-    .protocol-badge {
-      position: absolute;
-      top: 0.6rem;
-      right: 0.6rem;
-      font-size: 0.62rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      padding: 0.18rem 0.45rem;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-
-    .badge-secure {
-      background: rgba(110, 231, 183, 0.1);
-      color: #6ee7b7;
-      border: 1px solid rgba(110, 231, 183, 0.25);
-    }
-
-    .badge-insecure {
-      background: rgba(251, 191, 36, 0.1);
-      color: #fbbf24;
-      border: 1px solid rgba(251, 191, 36, 0.25);
-    }
-
-    .card:hover {
-      transform: translateY(-4px);
-      border-color: #3b82f6;
-      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
-    }
-
-    .card .icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      background: #252536;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-      color: #6ee7b7;
-      overflow: hidden;
-    }
-
-    .card .icon img {
-      width: 28px;
-      height: 28px;
-      object-fit: contain;
-    }
-
-    .card .name {
-      font-weight: 600;
-      font-size: 0.95rem;
-      text-align: center;
-    }
-
-    .card .desc {
-      font-size: 0.8rem;
-      color: #888;
-      text-align: center;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .card .port {
-      font-size: 0.8rem;
-      color: #666;
-      font-family: 'SF Mono', 'Fira Code', monospace;
-    }
-
-    /* --- Other services list --- */
-    .other-list {
-      width: 100%;
-      max-width: 1000px;
-      padding: 0 2rem 3rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-    }
-
-    .other-item {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 0.6rem 1rem;
-      background: #15151d;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      animation: cardIn 0.3s ease both;
-    }
-
-    .other-item .other-icon {
-      color: #555;
-      width: 20px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-
-    .other-item .other-port {
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      color: #6ee7b7;
-      min-width: 52px;
-    }
-
-    .other-item .other-name {
-      color: #aaa;
-    }
-
-    .other-item .other-proc {
-      margin-left: auto;
-      color: #555;
-      font-size: 0.75rem;
-    }
-
-    .empty {
-      text-align: center;
-      color: #555;
-      padding: 4rem 1rem;
-      grid-column: 1 / -1;
-    }
-
-    .empty i {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
-      display: block;
-      color: #333;
-    }
-
-    @keyframes cardIn {
-      from { opacity: 0; transform: translateY(12px) scale(0.96); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1><i class="fas fa-network-wired"></i> Localhost Explorer</h1>
-    <div class="header-right">
-      <div id="status"></div>
-      <button class="bell-btn" id="bell-btn" title="Toggle notifications">
-        <i class="fas fa-bell"></i>
-      </button>
-    </div>
-  </header>
-
-  <div id="web-label" class="section-label" style="display:none">Web Services</div>
-  <div class="grid" id="grid"></div>
-
-  <div id="other-label" class="section-label" style="display:none">Other Services</div>
-  <div class="other-list" id="other-list"></div>
-
-  <script>
-    const SERVICE_HOST = {{ service_host | tojson }};
-
-    const grid = document.getElementById('grid');
-    const otherList = document.getElementById('other-list');
-    const webLabel = document.getElementById('web-label');
-    const otherLabel = document.getElementById('other-label');
-    const status = document.getElementById('status');
-    const bellBtn = document.getElementById('bell-btn');
-
-    let prevKeys = '';
-    let knownPorts = new Set();
-    let firstLoad = true;
-    let notifEnabled = false;
-    let savedStatus = { cls: '', html: '' };
-
-    function setStatus(cls, html) {
-      savedStatus = { cls, html };
-      status.className = cls;
-      status.innerHTML = html;
-    }
-
-    status.addEventListener('mouseenter', () => {
-      if (status.className === 'refreshing') return;
-      status.innerHTML = '<i class="fas fa-rotate-right"></i> Scan now';
-    });
-    status.addEventListener('mouseleave', () => {
-      if (status.className === 'refreshing') return;
-      status.innerHTML = savedStatus.html;
-    });
-    status.addEventListener('click', () => {
-      if (status.className === 'refreshing') return;
-      refresh();
-    });
-
-    // --- Prefs ---
-    function loadPrefs() {
-      notifEnabled = localStorage.getItem('notificationsEnabled') === 'true';
-      updateBellUI();
-    }
-
-    function savePrefs() {
-      localStorage.setItem('notificationsEnabled', notifEnabled);
-    }
-
-    function updateBellUI() {
-      bellBtn.classList.toggle('active', notifEnabled);
-      bellBtn.title = notifEnabled ? 'Notifications on — click to disable' : 'Notifications off — click to enable';
-      bellBtn.innerHTML = notifEnabled
-        ? '<i class="fas fa-bell"></i>'
-        : '<i class="fas fa-bell-slash"></i>';
-    }
-
-    bellBtn.addEventListener('click', async () => {
-      notifEnabled = !notifEnabled;
-      if (notifEnabled) {
-        if (Notification.permission === 'default') {
-          const perm = await Notification.requestPermission();
-          if (perm !== 'granted') { notifEnabled = false; }
-        } else if (Notification.permission === 'denied') {
-          notifEnabled = false;
-          alert('Notifications are blocked by the browser. Please enable them in site settings.');
-        }
-      }
-      updateBellUI();
-      savePrefs();
-    });
-
-    // --- Notifications ---
-    function notifyNew(svc) {
-      if (!notifEnabled || Notification.permission !== 'granted' || document.hasFocus()) return;
-      new Notification('New service detected', {
-        body: `${svc.title || svc.name} on :${svc.port}`,
-        icon: svc.favicon || undefined,
-        tag: `svc-${svc.port}`,
-      });
-    }
-
-    // --- Render ---
-    async function refresh() {
-      setStatus('refreshing', `<i class="fas fa-circle-notch fa-spin"></i> Scanning…`);
-      try {
-        const res = await fetch('/api/services');
-        const data = await res.json();
-        const web = data.web || [];
-        const other = data.other || [];
-        const total = web.length + other.length;
-        const allSvcs = [...web, ...other];
-        const keys = web.map(s => s.port).join(',') + '|' + other.map(s => s.port).join(',');
-
-        // Detect new ports (skip on first load to avoid notifying for everything)
-        if (!firstLoad) {
-          allSvcs.forEach(svc => {
-            if (!knownPorts.has(svc.port)) notifyNew(svc);
-          });
-        }
-        firstLoad = false;
-        knownPorts = new Set(allSvcs.map(s => s.port));
-
-        if (keys !== prevKeys) {
-          prevKeys = keys;
-
-          // --- Web services ---
-          grid.innerHTML = '';
-          webLabel.style.display = web.length ? '' : 'none';
-          webLabel.innerHTML = `Web Services <span class="section-count">${web.length}</span>`;
-
-          if (total === 0) {
-            grid.innerHTML = `
-              <div class="empty">
-                <i class="fas fa-ghost"></i>
-                No services detected
-              </div>`;
-          }
-
-          web.forEach((svc, i) => {
-            const a = document.createElement('a');
-            const proto = svc.protocol || 'http';
-            const link = proto + '://' + SERVICE_HOST + ':' + svc.port;
-            a.className = 'card';
-            a.href = link;
-            a.target = '_blank';
-            a.rel = 'noopener';
-            a.style.animationDelay = (i * 0.05) + 's';
-
-            let iconHtml;
-            if (svc.favicon) {
-              iconHtml = `<img src="${esc(svc.favicon)}" onerror="this.parentNode.innerHTML='<i class=\\'fas ${esc(svc.icon)}\\'></i>'">`;
-            } else {
-              iconHtml = `<i class="fas ${esc(svc.icon)}"></i>`;
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Localhost Explorer</title>
+        <link
+            rel="icon"
+            type="image/png"
+            href="{{ url_for('static', filename='icon.png') }}"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
             }
 
-            let badgeHtml = '';
-            if (proto === 'https') {
-              if (svc.secure) {
-                badgeHtml = `<div class="protocol-badge badge-secure"><i class="fas fa-lock"></i> HTTPS</div>`;
-              } else {
-                badgeHtml = `<div class="protocol-badge badge-insecure" title="Self-signed or untrusted certificate"><i class="fas fa-lock-open"></i> HTTPS</div>`;
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                    sans-serif;
+                background: #0f0f13;
+                color: #e0e0e0;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding-top: 4rem;
+            }
+
+            header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 100;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 2rem;
+                height: 3.5rem;
+                background: #0f0f13cc;
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border-bottom: 1px solid #1e1e2a;
+            }
+
+            header h1 {
+                font-size: 1.1rem;
+                font-weight: 700;
+                background: linear-gradient(135deg, #6ee7b7, #3b82f6);
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+                white-space: nowrap;
+            }
+
+            header h1 i {
+                -webkit-text-fill-color: #6ee7b7;
+                margin-right: 0.4rem;
+            }
+
+            .header-icon {
+                width: 1.3rem;
+                height: 1.3rem;
+                display: inline-block;
+                vertical-align: middle;
+                margin-right: 0.4rem;
+                border-radius: 4px;
+
+                background: linear-gradient(135deg, #6ee7b7, #3b82f6);
+            }
+
+            .header-right {
+                display: flex;
+                align-items: center;
+                gap: 0.6rem;
+            }
+
+            .bell-btn {
+                background: #1a1a24;
+                border: 1px solid #2a2a3a;
+                border-radius: 20px;
+                color: #444;
+                cursor: pointer;
+                font-size: 0.8rem;
+                padding: 0.3rem 0.65rem;
+                min-height: 1.8rem;
+                display: flex;
+                align-items: center;
+                transition:
+                    color 0.2s,
+                    border-color 0.2s;
+            }
+
+            .bell-btn:hover {
+                color: #888;
+                border-color: #3a3a4a;
+            }
+
+            .bell-btn.active {
+                color: #6ee7b7;
+                border-color: #6ee7b744;
+            }
+
+            #status {
+                min-width: 200px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.4rem;
+                font-size: 0.78rem;
+                padding: 0.3rem 0.75rem;
+                border-radius: 20px;
+                background: #1a1a24;
+                border: 1px solid #2a2a3a;
+                color: #555;
+                transition:
+                    color 0.3s,
+                    border-color 0.3s;
+                min-height: 1.8rem;
+                white-space: nowrap;
+                cursor: pointer;
+                user-select: none;
+            }
+
+            #status:not(.refreshing):hover {
+                color: #e0e0e0;
+                border-color: #3a3a4a;
+            }
+
+            #status.refreshing {
+                color: #6ee7b7;
+                border-color: #6ee7b744;
+            }
+
+            #status.error {
+                color: #f87171;
+                border-color: #f8717144;
+            }
+
+            .status-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: currentColor;
+                flex-shrink: 0;
+            }
+
+            #status.idle .status-dot {
+                animation: pulse-dot 3s ease-in-out infinite;
+            }
+
+            @keyframes pulse-dot {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.35;
+                }
+            }
+
+            /* --- Web services grid --- */
+            .section-label {
+                width: 100%;
+                max-width: 1000px;
+                padding: 0 2rem;
+                font-size: 0.75rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: #555;
+                margin: 1rem 0;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .section-count {
+                background: #252536;
+                color: #666;
+                font-size: 0.7rem;
+                font-weight: 600;
+                border-radius: 10px;
+                padding: 0.1rem 0.5rem;
+                letter-spacing: 0;
+                text-transform: none;
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+                gap: 1rem;
+                padding: 0.75rem 2rem 1.5rem;
+                width: 100%;
+                max-width: 1000px;
+            }
+
+            .card {
+                background: #1a1a24;
+                border: 1px solid #2a2a3a;
+                border-radius: 12px;
+                padding: 1.5rem;
+                text-decoration: none;
+                color: inherit;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0.75rem;
+                transition:
+                    transform 0.2s,
+                    border-color 0.2s,
+                    box-shadow 0.2s;
+                animation: cardIn 0.35s ease both;
+                position: relative;
+            }
+
+            .protocol-badge {
+                position: absolute;
+                top: 0.6rem;
+                right: 0.6rem;
+                font-size: 0.62rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                padding: 0.18rem 0.45rem;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 0.25rem;
+            }
+
+            .badge-secure {
+                background: rgba(110, 231, 183, 0.1);
+                color: #6ee7b7;
+                border: 1px solid rgba(110, 231, 183, 0.25);
+            }
+
+            .badge-insecure {
+                background: rgba(251, 191, 36, 0.1);
+                color: #fbbf24;
+                border: 1px solid rgba(251, 191, 36, 0.25);
+            }
+
+            .card:hover {
+                transform: translateY(-4px);
+                border-color: #3b82f6;
+                box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+            }
+
+            .card .icon {
+                width: 48px;
+                height: 48px;
+                border-radius: 10px;
+                background: #252536;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.4rem;
+                color: #6ee7b7;
+                overflow: hidden;
+            }
+
+            .card .icon img {
+                width: 28px;
+                height: 28px;
+                object-fit: contain;
+            }
+
+            .card .name {
+                font-weight: 600;
+                font-size: 0.95rem;
+                text-align: center;
+            }
+
+            .card .desc {
+                font-size: 0.8rem;
+                color: #888;
+                text-align: center;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .card .port {
+                font-size: 0.8rem;
+                color: #666;
+                font-family: 'SF Mono', 'Fira Code', monospace;
+            }
+
+            /* --- Port range slider --- */
+            .range-container {
+                width: 100%;
+                max-width: 1000px;
+                padding: 0 2rem 1.25rem;
+            }
+
+            .range-slider-wrap {
+                position: relative;
+                height: 22px;
+                display: flex;
+                align-items: center;
+            }
+
+            .range-track {
+                position: absolute;
+                width: 100%;
+                height: 3px;
+                background: #252536;
+                border-radius: 2px;
+            }
+
+            .range-fill {
+                position: absolute;
+                height: 100%;
+                background: #6ee7b7;
+                border-radius: 2px;
+                pointer-events: none;
+            }
+
+            .range-input {
+                position: absolute;
+                width: 100%;
+                height: 3px;
+                appearance: none;
+                -webkit-appearance: none;
+                background: transparent;
+                pointer-events: none;
+                outline: none;
+            }
+
+            .range-input::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: #6ee7b7;
+                cursor: pointer;
+                pointer-events: all;
+                border: 2px solid #0f0f13;
+                box-shadow: 0 0 6px rgba(110, 231, 183, 0.35);
+                transition: transform 0.15s, box-shadow 0.15s;
+            }
+
+            .range-input::-webkit-slider-thumb:hover {
+                transform: scale(1.2);
+                box-shadow: 0 0 10px rgba(110, 231, 183, 0.5);
+            }
+
+            .range-input::-moz-range-thumb {
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: #6ee7b7;
+                cursor: pointer;
+                pointer-events: all;
+                border: 2px solid #0f0f13;
+                box-shadow: 0 0 6px rgba(110, 231, 183, 0.35);
+            }
+
+            .range-labels {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.72rem;
+                color: #555;
+                font-family: 'SF Mono', 'Fira Code', monospace;
+                margin-top: 0.5rem;
+            }
+
+            /* --- Other services list --- */
+            .other-list {
+                width: 100%;
+                max-width: 1000px;
+                padding: 0 2rem 3rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+
+            .other-item {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.6rem 1rem;
+                background: #15151d;
+                border-radius: 8px;
+                font-size: 0.85rem;
+                animation: cardIn 0.3s ease both;
+            }
+
+            .other-item .other-icon {
+                color: #555;
+                width: 20px;
+                text-align: center;
+                flex-shrink: 0;
+            }
+
+            .other-item .other-port {
+                font-family: 'SF Mono', 'Fira Code', monospace;
+                color: #6ee7b7;
+                min-width: 52px;
+            }
+
+            .other-item .other-name {
+                color: #aaa;
+            }
+
+            .other-item .other-proc {
+                margin-left: auto;
+                color: #555;
+                font-size: 0.75rem;
+            }
+
+            .empty {
+                text-align: center;
+                color: #555;
+                padding: 4rem 1rem;
+                grid-column: 1 / -1;
+            }
+
+            .empty i {
+                font-size: 2.5rem;
+                margin-bottom: 1rem;
+                display: block;
+                color: #333;
+            }
+
+            @keyframes cardIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(12px) scale(0.96);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+          <div style="display: flex; align-items: center;">
+            <span
+            class="header-icon"
+            style="
+            -webkit-mask: url('{{ url_for('static', filename='icon.png') }}') no-repeat center / contain;
+            mask: url('{{ url_for('static', filename='icon.png') }}') no-repeat center / contain;
+            "
+            ></span>
+            <h1>
+              Localhost Explorer
+            </h1>
+          </div>
+            <div class="header-right">
+                <div id="status"></div>
+                <button
+                    class="bell-btn"
+                    id="bell-btn"
+                    title="Toggle notifications"
+                >
+                    <i class="fas fa-bell"></i>
+                </button>
+            </div>
+        </header>
+
+        <div id="web-label" class="section-label" style="display: none">
+            Web Services
+        </div>
+        <div class="grid" id="grid"></div>
+
+        <div id="other-label" class="section-label" style="display: none">
+            Other Services
+        </div>
+        <div class="range-container" id="range-container" style="display: none">
+            <div class="range-slider-wrap">
+                <div class="range-track">
+                    <div class="range-fill" id="range-fill"></div>
+                </div>
+                <input type="range" class="range-input" id="range-min-input">
+                <input type="range" class="range-input" id="range-max-input">
+            </div>
+            <div class="range-labels">
+                <span id="range-min-label"></span>
+                <span id="range-max-label"></span>
+            </div>
+        </div>
+        <div class="other-list" id="other-list"></div>
+
+        <script>
+            const SERVICE_HOST = {{ service_host | tojson }};
+
+            const grid = document.getElementById('grid');
+            const otherList = document.getElementById('other-list');
+            const webLabel = document.getElementById('web-label');
+            const otherLabel = document.getElementById('other-label');
+            const rangeContainer = document.getElementById('range-container');
+            const rangeMinInput = document.getElementById('range-min-input');
+            const rangeMaxInput = document.getElementById('range-max-input');
+            const rangeFill = document.getElementById('range-fill');
+            const rangeMinLabel = document.getElementById('range-min-label');
+            const rangeMaxLabel = document.getElementById('range-max-label');
+            const status = document.getElementById('status');
+            const bellBtn = document.getElementById('bell-btn');
+
+            let prevKeys = '';
+            let knownPorts = new Set();
+            let firstLoad = true;
+            let notifEnabled = false;
+            let savedStatus = { cls: '', html: '' };
+            let allOther = [];
+
+            // --- Range slider ---
+            function updateRangeFill() {
+                const lo = parseInt(rangeMinInput.min);
+                const hi = parseInt(rangeMinInput.max);
+                const minVal = parseInt(rangeMinInput.value);
+                const maxVal = parseInt(rangeMaxInput.value);
+                const span = hi - lo || 1;
+                const pctMin = (minVal - lo) / span * 100;
+                const pctMax = (maxVal - lo) / span * 100;
+                rangeFill.style.left = pctMin + '%';
+                rangeFill.style.width = (pctMax - pctMin) + '%';
+                rangeMinLabel.textContent = ':' + minVal;
+                rangeMaxLabel.textContent = ':' + maxVal;
+                // z-index: give the thumb that's near the far end higher priority
+                // so it can always be dragged back
+                rangeMinInput.style.zIndex = minVal >= parseInt(rangeMaxInput.max) - 1 ? 5 : 4;
+                rangeMaxInput.style.zIndex = maxVal <= parseInt(rangeMinInput.min) + 1 ? 5 : 4;
+            }
+
+            function initRangeSlider(ports) {
+                const lo = Math.min(...ports);
+                const hi = Math.max(...ports);
+                const step = Math.max(1, Math.round((hi - lo) / 10));
+                [rangeMinInput, rangeMaxInput].forEach(el => {
+                    el.min = lo;
+                    el.max = hi;
+                    el.step = step;
+                });
+                rangeMinInput.value = lo;
+                rangeMaxInput.value = hi;
+                updateRangeFill();
+            }
+
+            function renderOtherFiltered() {
+                const minVal = parseInt(rangeMinInput.value);
+                const maxVal = parseInt(rangeMaxInput.value);
+                const filtered = allOther.filter(s => s.port >= minVal && s.port <= maxVal);
+                otherLabel.innerHTML = `Other Services <span class="section-count">${filtered.length}</span>`;
+                otherList.innerHTML = '';
+                filtered.forEach((svc, i) => {
+                    const div = document.createElement('div');
+                    div.className = 'other-item';
+                    div.style.animationDelay = (i * 0.03) + 's';
+                    div.innerHTML = `
+                        <span class="other-icon"><i class="fas ${esc(svc.icon)}"></i></span>
+                        <span class="other-port">:${svc.port}</span>
+                        <span class="other-name">${esc(svc.name)}</span>
+                        ${svc.process ? `<span class="other-proc">${esc(svc.process)}</span>` : ''}`;
+                    otherList.appendChild(div);
+                });
+            }
+
+            rangeMinInput.addEventListener('input', () => {
+                const step = parseInt(rangeMinInput.step) || 1;
+                if (parseInt(rangeMinInput.value) >= parseInt(rangeMaxInput.value))
+                    rangeMinInput.value = parseInt(rangeMaxInput.value) - step;
+                updateRangeFill();
+                renderOtherFiltered();
+            });
+
+            rangeMaxInput.addEventListener('input', () => {
+                const step = parseInt(rangeMaxInput.step) || 1;
+                if (parseInt(rangeMaxInput.value) <= parseInt(rangeMinInput.value))
+                    rangeMaxInput.value = parseInt(rangeMinInput.value) + step;
+                updateRangeFill();
+                renderOtherFiltered();
+            });
+
+            function setStatus(cls, html) {
+              savedStatus = { cls, html };
+              status.className = cls;
+              status.innerHTML = html;
+            }
+
+            status.addEventListener('mouseenter', () => {
+              if (status.className === 'refreshing') return;
+              status.innerHTML = '<i class="fas fa-rotate-right"></i> Scan now';
+            });
+            status.addEventListener('mouseleave', () => {
+              if (status.className === 'refreshing') return;
+              status.innerHTML = savedStatus.html;
+            });
+            status.addEventListener('click', () => {
+              if (status.className === 'refreshing') return;
+              refresh();
+            });
+
+            // --- Prefs ---
+            function loadPrefs() {
+              notifEnabled = localStorage.getItem('notificationsEnabled') === 'true';
+              updateBellUI();
+            }
+
+            function savePrefs() {
+              localStorage.setItem('notificationsEnabled', notifEnabled);
+            }
+
+            function updateBellUI() {
+              bellBtn.classList.toggle('active', notifEnabled);
+              bellBtn.title = notifEnabled ? 'Notifications on — click to disable' : 'Notifications off — click to enable';
+              bellBtn.innerHTML = notifEnabled
+                ? '<i class="fas fa-bell"></i>'
+                : '<i class="fas fa-bell-slash"></i>';
+            }
+
+            bellBtn.addEventListener('click', async () => {
+              notifEnabled = !notifEnabled;
+              if (notifEnabled) {
+                if (Notification.permission === 'default') {
+                  const perm = await Notification.requestPermission();
+                  if (perm !== 'granted') { notifEnabled = false; }
+                } else if (Notification.permission === 'denied') {
+                  notifEnabled = false;
+                  alert('Notifications are blocked by the browser. Please enable them in site settings.');
+                }
+              }
+              updateBellUI();
+              savePrefs();
+            });
+
+            // --- Notifications ---
+            function notifyNew(svc) {
+              if (!notifEnabled || Notification.permission !== 'granted' || document.hasFocus()) return;
+              new Notification('New service detected', {
+                body: `${svc.title || svc.name} on :${svc.port}`,
+                icon: svc.favicon || undefined,
+                tag: `svc-${svc.port}`,
+              });
+            }
+
+            // --- Render ---
+            async function refresh() {
+              setStatus('refreshing', `<i class="fas fa-circle-notch fa-spin"></i> Scanning…`);
+              try {
+                const res = await fetch('/api/services');
+                const data = await res.json();
+                const web = data.web || [];
+                const other = data.other || [];
+                const total = web.length + other.length;
+                const allSvcs = [...web, ...other];
+                const keys = web.map(s => s.port).join(',') + '|' + other.map(s => s.port).join(',');
+
+                // Detect new ports (skip on first load to avoid notifying for everything)
+                if (!firstLoad) {
+                  allSvcs.forEach(svc => {
+                    if (!knownPorts.has(svc.port)) notifyNew(svc);
+                  });
+                }
+                firstLoad = false;
+                knownPorts = new Set(allSvcs.map(s => s.port));
+
+                if (keys !== prevKeys) {
+                  prevKeys = keys;
+
+                  // --- Web services ---
+                  grid.innerHTML = '';
+                  webLabel.style.display = web.length ? '' : 'none';
+                  webLabel.innerHTML = `Web Services <span class="section-count">${web.length}</span>`;
+
+                  if (total === 0) {
+                    grid.innerHTML = `
+                      <div class="empty">
+                        <i class="fas fa-ghost"></i>
+                        No services detected
+                      </div>`;
+                  }
+
+                  web.forEach((svc, i) => {
+                    const a = document.createElement('a');
+                    const proto = svc.protocol || 'http';
+                    const link = proto + '://' + SERVICE_HOST + ':' + svc.port;
+                    a.className = 'card';
+                    a.href = link;
+                    a.target = '_blank';
+                    a.rel = 'noopener';
+                    a.style.animationDelay = (i * 0.05) + 's';
+
+                    let iconHtml;
+                    if (svc.favicon) {
+                      iconHtml = `<img src="${esc(svc.favicon)}" onerror="this.parentNode.innerHTML='<i class=\\'fas ${esc(svc.icon)}\\'></i>'">`;
+                    } else {
+                      iconHtml = `<i class="fas ${esc(svc.icon)}"></i>`;
+                    }
+
+                    let badgeHtml = '';
+                    if (proto === 'https') {
+                      if (svc.secure) {
+                        badgeHtml = `<div class="protocol-badge badge-secure"><i class="fas fa-lock"></i> HTTPS</div>`;
+                      } else {
+                        badgeHtml = `<div class="protocol-badge badge-insecure" title="Self-signed or untrusted certificate"><i class="fas fa-lock-open"></i> HTTPS</div>`;
+                      }
+                    }
+
+                    const displayName = svc.title || svc.name;
+                    const descHtml = svc.description
+                      ? `<div class="desc">${esc(svc.description)}</div>`
+                      : '';
+
+                    a.innerHTML = `
+                      ${badgeHtml}
+                      <div class="icon">${iconHtml}</div>
+                      <div class="name">${esc(displayName)}</div>
+                      ${descHtml}
+                      <div class="port">:${svc.port}</div>`;
+                    grid.appendChild(a);
+                  });
+
+                  // --- Other services ---
+                  allOther = other;
+                  const hasOther = other.length > 0;
+                  otherLabel.style.display = hasOther ? '' : 'none';
+                  rangeContainer.style.display = hasOther ? '' : 'none';
+                  if (hasOther) {
+                    initRangeSlider(other.map(s => s.port));
+                  }
+                  renderOtherFiltered();
+                }
+
+                setStatus('idle', `<span class="status-dot"></span> ${total} service${total !== 1 ? 's' : ''} · ${new Date().toLocaleTimeString()}`);
+              } catch (e) {
+                setStatus('error', `<i class="fas fa-circle-exclamation"></i> Connection error`);
               }
             }
 
-            const displayName = svc.title || svc.name;
-            const descHtml = svc.description
-              ? `<div class="desc">${esc(svc.description)}</div>`
-              : '';
+            function esc(s) {
+              const d = document.createElement('div');
+              d.textContent = s;
+              return d.innerHTML;
+            }
 
-            a.innerHTML = `
-              ${badgeHtml}
-              <div class="icon">${iconHtml}</div>
-              <div class="name">${esc(displayName)}</div>
-              ${descHtml}
-              <div class="port">:${svc.port}</div>`;
-            grid.appendChild(a);
-          });
-
-          // --- Other services ---
-          otherList.innerHTML = '';
-          otherLabel.style.display = other.length ? '' : 'none';
-          otherLabel.innerHTML = `Other Services <span class="section-count">${other.length}</span>`;
-
-          other.forEach((svc, i) => {
-            const div = document.createElement('div');
-            div.className = 'other-item';
-            div.style.animationDelay = (i * 0.03) + 's';
-            div.innerHTML = `
-              <span class="other-icon"><i class="fas ${esc(svc.icon)}"></i></span>
-              <span class="other-port">:${svc.port}</span>
-              <span class="other-name">${esc(svc.name)}</span>
-              ${svc.process ? `<span class="other-proc">${esc(svc.process)}</span>` : ''}`;
-            otherList.appendChild(div);
-          });
-        }
-
-        setStatus('idle', `<span class="status-dot"></span> ${total} service${total !== 1 ? 's' : ''} · ${new Date().toLocaleTimeString()}`);
-      } catch (e) {
-        setStatus('error', `<i class="fas fa-circle-exclamation"></i> Connection error`);
-      }
-    }
-
-    function esc(s) {
-      const d = document.createElement('div');
-      d.textContent = s;
-      return d.innerHTML;
-    }
-
-    loadPrefs();
-    refresh();
-    setInterval(refresh, 30_000);
-    window.addEventListener('focus', refresh);
-  </script>
-</body>
+            loadPrefs();
+            refresh();
+            setInterval(refresh, 30_000);
+            window.addEventListener('focus', refresh);
+        </script>
+    </body>
 </html>
