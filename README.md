@@ -68,7 +68,8 @@ Process names (`node`, `python`, `nginx`, `postgres`, `redis-server`, etc.) are 
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| `APP_PORT` | `5001` | Port the dashboard itself listens on |
+| `PORT` | `5001` | Port the dashboard itself listens on |
+| `HOST` | `localhost` | hostname or IP used in browser-side service links |
 
 ## Docker
 

@@ -1,6 +1,6 @@
 services:
   localhost-explorer:
-    image: ghcr.io/idohomri-io/localhost-explorer:v1.1.0
+    image: ghcr.io/idohomri-io/localhost-explorer:latest
     pull_policy: always
     container_name: localhost-explorer
     # build: .   # uncomment to build from source instead of pulling
