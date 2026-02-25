@@ -73,17 +73,29 @@ Process names (`node`, `python`, `nginx`, `postgres`, `redis-server`, etc.) are 
 
 ## Docker
 
-The container must share the host's network namespace to discover the host's listening ports and reach `http://localhost:<port>` for HTTP probing. This requires `--net=host`, which is **Linux-only** (not supported on Docker Desktop for macOS/Windows — use the local Python install there instead).
+Works on macOS, Windows, and Linux. The container uses `SCAN_HOST=host.docker.internal` to TCP-probe the host machine's ports.
+
+### Docker Compose (recommended)
 
 ```bash
-# Run (Linux only)
-./run-docker.sh
-
-# Or manually (Linux only)
-docker run --rm --net=host ghcr.io/idohomri-io/localhost-explorer:latest
+docker compose up -d
 ```
 
-Then open [http://localhost:5001](http://localhost:5001).
+Then open [http://localhost](http://localhost).
+
+### Manual
+
+```bash
+docker run -d --name localhost-explorer \
+  --restart unless-stopped \
+  -p 80:80 \
+  --add-host host.docker.internal:host-gateway \
+  -e PYTHONUNBUFFERED=1 \
+  -e SCAN_HOST=host.docker.internal \
+  ghcr.io/idohomri-io/localhost-explorer:latest
+```
+
+Then open [http://localhost](http://localhost).
 
 ## Project Structure
 
@@ -91,7 +103,6 @@ Then open [http://localhost:5001](http://localhost:5001).
 localhost-explorer/
 ├── app.py              # Flask app & service discovery logic
 ├── requirements.txt
-├── run-docker.sh       # Run with --net=host (Linux)
 └── templates/
     └── index.html      # Single-file frontend (HTML + CSS + JS)
 ```
