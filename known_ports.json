@@ -1,0 +1,38 @@
+{
+  "ports": {
+    "80":    ["HTTP Server",        "fa-globe"],
+    "443":   ["HTTPS Server",       "fa-lock"],
+    "1080":  ["SOCKS Proxy",        "fa-shield-halved"],
+    "3000":  ["React Dev Server",   "fa-react"],
+    "3306":  ["MySQL",              "fa-database"],
+    "4200":  ["Angular Dev Server", "fa-angular"],
+    "5000":  ["Flask",              "fa-pepper-hot"],
+    "5173":  ["Vite",               "fa-bolt"],
+    "5432":  ["PostgreSQL",         "fa-database"],
+    "5500":  ["Live Server",        "fa-broadcast-tower"],
+    "6379":  ["Redis",              "fa-server"],
+    "8000":  ["Dev Server",         "fa-code"],
+    "8080":  ["HTTP Server",        "fa-globe"],
+    "8443":  ["HTTPS Alt",          "fa-lock"],
+    "8888":  ["Jupyter",            "fa-book"],
+    "9090":  ["Prometheus",         "fa-chart-line"],
+    "9200":  ["Elasticsearch",      "fa-magnifying-glass"],
+    "27017": ["MongoDB",            "fa-leaf"]
+  },
+  "processes": {
+    "node":         ["Node.js",    "fa-node-js"],
+    "python":       ["Python",     "fa-python"],
+    "python3":      ["Python",     "fa-python"],
+    "nginx":        ["Nginx",      "fa-server"],
+    "httpd":        ["Apache",     "fa-feather"],
+    "redis-server": ["Redis",      "fa-server"],
+    "mongod":       ["MongoDB",    "fa-leaf"],
+    "postgres":     ["PostgreSQL", "fa-database"],
+    "mysqld":       ["MySQL",      "fa-database"],
+    "java":         ["Java",       "fa-java"],
+    "ruby":         ["Ruby",       "fa-gem"],
+    "php":          ["PHP",        "fa-php"],
+    "deno":         ["Deno",       "fa-dinosaur"],
+    "bun":          ["Bun",        "fa-bread-slice"]
+  }
+}

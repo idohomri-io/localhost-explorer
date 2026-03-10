@@ -412,7 +412,6 @@
             }
 
             .other-item .other-proc {
-                margin-left: auto;
                 color: #555;
                 font-size: 0.75rem;
             }
@@ -429,6 +428,144 @@
                 margin-bottom: 1rem;
                 display: block;
                 color: #333;
+            }
+
+            /* --- Group cards --- */
+            .card-group { cursor: pointer; }
+
+            .group-count {
+                position: absolute;
+                top: 0.6rem;
+                left: 0.6rem;
+                font-size: 0.62rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                padding: 0.18rem 0.45rem;
+                border-radius: 8px;
+                background: rgba(110, 231, 183, 0.1);
+                color: #6ee7b7;
+                border: 1px solid rgba(110, 231, 183, 0.25);
+                display: flex;
+                align-items: center;
+                gap: 0.25rem;
+            }
+
+            .group-dropdown {
+                position: absolute;
+                inset: 0;
+                border-radius: 12px;
+                background: #1a1a24;
+                display: flex;
+                flex-direction: column;
+                padding: 0.75rem;
+                overflow-y: auto;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.18s;
+            }
+
+            .group-dropdown-label {
+                font-size: 0.7rem;
+                font-weight: 600;
+                color: #555;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 0.4rem;
+                padding-bottom: 0.4rem;
+                border-bottom: 1px solid #252536;
+                flex-shrink: 0;
+            }
+
+            .group-dropdown-links {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+                flex: 1;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                scrollbar-color: #2a2a3a transparent;
+            }
+
+            .group-dropdown-links::-webkit-scrollbar {
+                width: 4px;
+            }
+
+            .group-dropdown-links::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .group-dropdown-links::-webkit-scrollbar-thumb {
+                background: #2a2a3a;
+                border-radius: 4px;
+            }
+
+            .group-dropdown-links::-webkit-scrollbar-thumb:hover {
+                background: #3a3a4a;
+            }
+
+            .card-group:hover .group-dropdown {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .group-link {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.45rem 0.65rem;
+                border-radius: 6px;
+                text-decoration: none;
+                color: #aaa;
+                font-size: 0.82rem;
+                transition: background 0.15s, color 0.15s;
+            }
+
+            .group-link:hover { background: #252536; color: #e0e0e0; }
+
+            .group-link-port {
+                font-family: 'SF Mono', 'Fira Code', monospace;
+                color: #6ee7b7;
+                font-weight: 600;
+            }
+
+            .group-link-pid {
+                font-family: 'SF Mono', 'Fira Code', monospace;
+                font-size: 0.72rem;
+                color: #555;
+                margin-left: auto;
+                margin-right: 0.5rem;
+            }
+
+            .group-link-pid i { font-size: 0.65rem; margin-right: 0.2rem; }
+
+            .group-link-arrow { color: #444; font-size: 0.65rem; }
+
+            /* --- Per-service process stats --- */
+            .proc-stats {
+                font-size: 0.72rem;
+                color: #555;
+                font-family: 'SF Mono', 'Fira Code', monospace;
+                display: flex;
+                align-items: center;
+                gap: 0.6rem;
+            }
+
+            .proc-stats i {
+                font-size: 0.65rem;
+                margin-right: 0.2rem;
+            }
+
+            .other-right {
+                margin-left: auto;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+            }
+
+            .other-item .other-stats {
+                color: #555;
+                font-size: 0.72rem;
+                font-family: 'SF Mono', 'Fira Code', monospace;
             }
 
             @keyframes cardIn {
@@ -468,6 +605,7 @@
                 </button>
             </div>
         </header>
+
 
         <div id="web-label" class="section-label" style="display: none">
             Web Services
@@ -559,12 +697,16 @@
                 filtered.forEach((svc, i) => {
                     const div = document.createElement('div');
                     div.className = 'other-item';
+                    div.dataset.port = svc.port;
                     div.style.animationDelay = (i * 0.03) + 's';
+                    const statsHtml = procStats(svc);
                     div.innerHTML = `
                         <span class="other-icon"><i class="fas ${esc(svc.icon)}"></i></span>
                         <span class="other-port">:${svc.port}</span>
-                        <span class="other-name">${esc(svc.name)}</span>
-                        ${svc.process ? `<span class="other-proc">${esc(svc.process)}</span>` : ''}`;
+                        <span class="other-name">${esc(svc.name)}</span> ${svc.process ? `<span class="other-proc">${esc(svc.process)}</span>` : ''}
+                        <span class="other-right">
+                            ${statsHtml ? `<span class="other-stats">${statsHtml}</span>` : ''}
+                        </span>`;
                     otherList.appendChild(div);
                 });
             }
@@ -690,43 +832,80 @@
                       </div>`;
                   }
 
-                  web.forEach((svc, i) => {
-                    const a = document.createElement('a');
-                    const proto = svc.protocol || 'http';
-                    a.className = 'card';
-                    a.href = svc.url;
-                    a.target = '_blank';
-                    a.rel = 'noopener';
-                    a.style.animationDelay = (i * 0.05) + 's';
+                  // Group web services by display name
+                  const nameMap = new Map();
+                  web.forEach(svc => {
+                    const key = svc.title || svc.name;
+                    if (!nameMap.has(key)) nameMap.set(key, []);
+                    nameMap.get(key).push(svc);
+                  });
 
-                    let iconHtml;
-                    if (svc.favicon) {
-                      iconHtml = `<img src="${esc(svc.favicon)}" onerror="this.parentNode.innerHTML='<i class=\\'fas ${esc(svc.icon)}\\'></i>'">`;
-                    } else {
-                      iconHtml = `<i class="fas ${esc(svc.icon)}"></i>`;
-                    }
-
-                    let badgeHtml = '';
-                    if (proto === 'https') {
-                      if (svc.secure) {
-                        badgeHtml = `<div class="protocol-badge badge-secure"><i class="fas fa-lock"></i> HTTPS</div>`;
-                      } else {
-                        badgeHtml = `<div class="protocol-badge badge-insecure" title="Self-signed or untrusted certificate"><i class="fas fa-lock-open"></i> HTTPS</div>`;
-                      }
-                    }
-
-                    const displayName = svc.title || svc.name;
-                    const descHtml = svc.description
-                      ? `<div class="desc">${esc(svc.description)}</div>`
+                  let cardIdx = 0;
+                  nameMap.forEach((svcs, groupName) => {
+                    const first = svcs[0];
+                    const proto = first.protocol || 'http';
+                    const iconHtml = first.favicon
+                      ? `<img src="${esc(first.favicon)}" onerror="this.parentNode.innerHTML='<i class=\\'fas ${esc(first.icon)}\\'></i>'">`
+                      : `<i class="fas ${esc(first.icon)}"></i>`;
+                    const descHtml = first.description
+                      ? `<div class="desc">${esc(first.description)}</div>`
                       : '';
 
-                    a.innerHTML = `
-                      ${badgeHtml}
-                      <div class="icon">${iconHtml}</div>
-                      <div class="name">${esc(displayName)}</div>
-                      ${descHtml}
-                      <div class="port">:${svc.port}</div>`;
-                    grid.appendChild(a);
+                    if (svcs.length === 1) {
+                      const svc = first;
+                      const a = document.createElement('a');
+                      a.className = 'card';
+                      a.dataset.port = svc.port;
+                      a.href = svc.url;
+                      a.target = '_blank';
+                      a.rel = 'noopener';
+                      a.style.animationDelay = (cardIdx * 0.05) + 's';
+                      let badgeHtml = '';
+                      if (proto === 'https') {
+                        badgeHtml = svc.secure
+                          ? `<div class="protocol-badge badge-secure"><i class="fas fa-lock"></i> HTTPS</div>`
+                          : `<div class="protocol-badge badge-insecure" title="Self-signed or untrusted certificate"><i class="fas fa-lock-open"></i> HTTPS</div>`;
+                      }
+                      a.innerHTML = `
+                        ${badgeHtml}
+                        <div class="icon">${iconHtml}</div>
+                        <div class="name">${esc(groupName)}</div>
+                        ${descHtml}
+                        <div class="port">:${svc.port}</div>
+                        ${procStats(svc)}`;
+                      grid.appendChild(a);
+                    } else {
+                      let totalCpu = null, totalMem = null;
+                      svcs.forEach(s => {
+                        if (s.cpu_percent != null) totalCpu = (totalCpu || 0) + s.cpu_percent;
+                        if (s.memory_rss != null) totalMem = (totalMem || 0) + s.memory_rss;
+                      });
+                      const aggSvc = { pid: null, cpu_percent: totalCpu !== null ? parseFloat(totalCpu.toFixed(1)) : null, memory_rss: totalMem };
+                      const linksHtml = svcs.map(svc =>
+                        `<a href="${esc(svc.url)}" target="_blank" rel="noopener" class="group-link">
+                          <span class="group-link-port">:${svc.port}</span>
+                          ${svc.pid != null ? `<span class="group-link-pid"><i class="fas fa-fingerprint"></i>${svc.pid}</span>` : ''}
+                          <i class="fas fa-arrow-up-right-from-square group-link-arrow"></i>
+                        </a>`
+                      ).join('');
+                      const el = document.createElement('div');
+                      el.className = 'card card-group';
+                      el.dataset.groupName = groupName;
+                      el.style.animationDelay = (cardIdx * 0.05) + 's';
+                      el.innerHTML = `
+                        <div class="group-count"><i class="fas fa-layer-group"></i> ${svcs.length}</div>
+                        <div class="icon">${iconHtml}</div>
+                        <div class="name">${esc(groupName)}</div>
+                        ${descHtml}
+                        <div class="port">${svcs.length} instances</div>
+                        ${procStats(aggSvc)}
+                        <div class="group-dropdown">
+                          <div class="group-dropdown-label"><i class="fas fa-layer-group"></i> ${svcs.length} instances</div>
+                          <div class="group-dropdown-links">${linksHtml}</div>
+                        </div>`;
+                      grid.appendChild(el);
+                    }
+                    cardIdx++;
                   });
 
                   // --- Other services ---
@@ -740,10 +919,50 @@
                   renderOtherFiltered();
                 }
 
+                // Always update proc-stats in-place, even when port list hasn't changed
+                allSvcs.forEach(svc => {
+                    const container = document.querySelector(`[data-port="${svc.port}"]`);
+                    if (!container) return;
+                    const existing = container.querySelector('.proc-stats');
+                    if (existing) existing.outerHTML = procStats(svc) || '';
+                });
+                document.querySelectorAll('[data-group-name]').forEach(el => {
+                    const name = el.dataset.groupName;
+                    const svcs = web.filter(s => (s.title || s.name) === name);
+                    if (!svcs.length) return;
+                    let totalCpu = null, totalMem = null;
+                    svcs.forEach(s => {
+                        if (s.cpu_percent != null) totalCpu = (totalCpu || 0) + s.cpu_percent;
+                        if (s.memory_rss != null) totalMem = (totalMem || 0) + s.memory_rss;
+                    });
+                    const newHtml = procStats({ pid: null, cpu_percent: totalCpu !== null ? parseFloat(totalCpu.toFixed(1)) : null, memory_rss: totalMem });
+                    const existing = el.querySelector('.proc-stats');
+                    if (existing) existing.outerHTML = newHtml || '';
+                });
+
                 setStatus('idle', `<span class="status-dot"></span> ${total} service${total !== 1 ? 's' : ''} · ${new Date().toLocaleTimeString()}`);
               } catch (e) {
                 setStatus('error', `<i class="fas fa-circle-exclamation"></i> Connection error`);
               }
+            }
+
+            // --- Per-service process stats helpers ---
+            function fmtBytes(b) {
+                if (b >= 1e12) return (b / 1e12).toFixed(1) + ' TB';
+                if (b >= 1e9)  return (b / 1e9).toFixed(1) + ' GB';
+                if (b >= 1e6)  return (b / 1e6).toFixed(1) + ' MB';
+                return (b / 1e3).toFixed(0) + ' KB';
+            }
+
+            function procStats(svc) {
+                const parts = [];
+                if (svc.pid !== null && svc.pid !== undefined)
+                    parts.push(`<i class="fas fa-fingerprint"></i>${svc.pid}`);
+                if (svc.cpu_percent !== null && svc.cpu_percent !== undefined)
+                    parts.push(`<i class="fas fa-microchip"></i>${svc.cpu_percent.toFixed(1)}%`);
+                if (svc.memory_rss !== null && svc.memory_rss !== undefined)
+                    parts.push(`<i class="fas fa-memory"></i>${fmtBytes(svc.memory_rss)}`);
+                return parts.length ? `<div class="proc-stats">${parts.join('<span style="color:#333">·</span>')}</div>` : '';
             }
 
             function esc(s) {

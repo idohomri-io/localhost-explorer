@@ -1,3 +1,6 @@
+import csv
+import io
+import json
 import os
 import platform
 import re
@@ -31,45 +34,73 @@ SCAN_HOST = os.environ.get("SCAN_HOST")
 print(f"Starting Localhost Explorer on {platform.system()}...")
 print(f"Environment variables: PORT={APP_PORT}, HOST={SERVICE_HOST}, SCAN_HOST={SCAN_HOST}")
 
-KNOWN_PORTS = {
-    80: ("HTTP Server", "fa-globe"),
-    443: ("HTTPS Server", "fa-lock"),
-    1080: ("SOCKS Proxy", "fa-shield-halved"),
-    3000: ("React Dev Server", "fa-react"),
-    3306: ("MySQL", "fa-database"),
-    4200: ("Angular Dev Server", "fa-angular"),
-    5000: ("Flask", "fa-pepper-hot"),
-    5173: ("Vite", "fa-bolt"),
-    5432: ("PostgreSQL", "fa-database"),
-    5500: ("Live Server", "fa-broadcast-tower"),
-    6379: ("Redis", "fa-server"),
-    8000: ("Dev Server", "fa-code"),
-    8080: ("HTTP Server", "fa-globe"),
-    8443: ("HTTPS Alt", "fa-lock"),
-    8888: ("Jupyter", "fa-book"),
-    9090: ("Prometheus", "fa-chart-line"),
-    9200: ("Elasticsearch", "fa-magnifying-glass"),
-    27017: ("MongoDB", "fa-leaf"),
-}
+def _load_known_services():
+    path = os.path.join(os.path.dirname(__file__), "known_ports.json")
+    with open(path) as f:
+        data = json.load(f)
+    ports = {int(k): tuple(v) for k, v in data["ports"].items()}
+    procs = {k: tuple(v) for k, v in data["processes"].items()}
+    return ports, procs
 
-KNOWN_PROCESSES = {
-    "node": ("Node.js", "fa-node-js"),
-    "python": ("Python", "fa-python"),
-    "python3": ("Python", "fa-python"),
-    "nginx": ("Nginx", "fa-server"),
-    "httpd": ("Apache", "fa-feather"),
-    "redis-server": ("Redis", "fa-server"),
-    "mongod": ("MongoDB", "fa-leaf"),
-    "postgres": ("PostgreSQL", "fa-database"),
-    "mysqld": ("MySQL", "fa-database"),
-    "java": ("Java", "fa-java"),
-    "ruby": ("Ruby", "fa-gem"),
-    "php": ("PHP", "fa-php"),
-    "deno": ("Deno", "fa-dinosaur"),
-    "bun": ("Bun", "fa-bread-slice"),
-}
+KNOWN_PORTS, KNOWN_PROCESSES = _load_known_services()
+
+
+_IANA_CSV = "https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.csv"
+
+def _load_iana_ports() -> dict[int, str]:
+    """Fetch IANA TCP port assignments and return {port: friendly_name}.
+
+    Only TCP entries with a single port number and a non-empty description
+    are included. Ports already in KNOWN_PORTS are skipped to avoid
+    overwriting curated entries. Falls back to an empty dict on any error.
+    """
+    try:
+        resp = requests.get(_IANA_CSV, timeout=5)
+        resp.raise_for_status()
+        result: dict[int, str] = {}
+        for row in csv.DictReader(io.StringIO(resp.text)):
+            port_str  = row.get("Port Number",        "").strip()
+            proto     = row.get("Transport Protocol", "").strip().lower()
+            svc_name  = row.get("Service Name",       "").strip()
+            desc      = row.get("Description",        "").strip()
+            if proto != "tcp" or not port_str or not port_str.isdigit():
+                continue
+            port = int(port_str)
+            if port in result or port in KNOWN_PORTS:
+                continue
+            # Prefer the human-readable description when it's concise;
+            # fall back to the service name in title case.
+            name = desc if desc and len(desc) <= 45 else svc_name.replace("-", " ").title() if svc_name else None
+            if name:
+                result[port] = name
+        print(f"Loaded {len(result)} port names from IANA registry.")
+        return result
+    except Exception as exc:
+        print(f"IANA port list unavailable ({exc}); using known_ports.json only.")
+        return {}
+
+IANA_PORTS: dict[int, str] = _load_iana_ports()
 
 LOCALHOST_ADDRS = {"127.0.0.1", "::1", "0.0.0.0", "::"}
+
+# Cache of psutil.Process objects keyed by PID for CPU% tracking.
+# cpu_percent(interval=None) needs two calls to return a non-zero value;
+# reusing the same Process object across refreshes gives accurate readings.
+_proc_cache: dict[int, psutil.Process] = {}
+
+
+def _get_proc_stats(pid: int | None) -> tuple[float | None, int | None]:
+    """Return (cpu_percent, memory_rss_bytes) for a PID, or (None, None)."""
+    if not pid:
+        return None, None
+    try:
+        if pid not in _proc_cache:
+            _proc_cache[pid] = psutil.Process(pid)
+        proc = _proc_cache[pid]
+        return proc.cpu_percent(interval=None), proc.memory_info().rss
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        _proc_cache.pop(pid, None)
+        return None, None
 
 
 # ---------------------------------------------------------------------------
@@ -243,12 +274,16 @@ def _get_services_psutil():
                 pass
 
         friendly_name, icon = resolve_service(port, proc_name)
+        cpu_pct, mem_rss = _get_proc_stats(conn.pid)
 
         services.append({
             "port": port,
+            "pid": conn.pid,
             "process": proc_name,
             "name": friendly_name,
             "icon": icon,
+            "cpu_percent": cpu_pct,
+            "memory_rss": mem_rss,
         })
 
     services.sort(key=lambda s: s["port"])
@@ -272,7 +307,10 @@ def _get_services_lsof():
     proc_name = ""
     for line in out.splitlines():
         if line.startswith("p"):
-            pid = line[1:]
+            try:
+                pid = int(line[1:])
+            except ValueError:
+                pid = None
             proc_name = ""
         elif line.startswith("c"):
             proc_name = line[1:]
@@ -294,11 +332,15 @@ def _get_services_lsof():
             seen_ports.add(port)
 
             friendly_name, icon = resolve_service(port, proc_name)
+            cpu_pct, mem_rss = _get_proc_stats(pid)
             services.append({
                 "port": port,
+                "pid": pid,
                 "process": proc_name,
                 "name": friendly_name,
                 "icon": icon,
+                "cpu_percent": cpu_pct,
+                "memory_rss": mem_rss,
             })
 
     services.sort(key=lambda s: s["port"])
@@ -334,9 +376,12 @@ def _get_services_scan(host):
             friendly_name, icon = resolve_service(port, "")
             services.append({
                 "port": port,
+                "pid": None,
                 "process": "",
                 "name": friendly_name,
                 "icon": icon,
+                "cpu_percent": None,
+                "memory_rss": None,
             })
 
     services.sort(key=lambda s: s["port"])
@@ -351,6 +396,9 @@ def resolve_service(port, proc_name):
     if proc_key in KNOWN_PROCESSES:
         return KNOWN_PROCESSES[proc_key]
 
+    if port in IANA_PORTS:
+        return (IANA_PORTS[port], "fa-plug")
+
     if proc_name:
         return (proc_name, "fa-plug")
     return (f"Port {port}", "fa-plug")
@@ -364,6 +412,7 @@ def index():
 @app.route("/api/services")
 def api_services():
     return jsonify(get_services())
+
 
 
 if __name__ == "__main__":
